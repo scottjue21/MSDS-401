@@ -1,4 +1,4 @@
-# Assignment Overview
+# Assignment 1 Overview
 This R assignment tests proficiency in key areas of data analysis and programming, including:
 
 1. **Vector Manipulation:** Create, modify, and analyze vectors, including calculating statistics (sum, length) and filtering based on conditions.

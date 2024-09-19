@@ -1,4 +1,4 @@
-# Data Analysis Project 2 Overview
+# Data Analysis Project 2: Statistical Inference on Abalone Data
 
 This project involves statistical inference using the abalone dataset. The primary focus is on developing a regression model to predict the age of abalone based on physical measurements, and evaluating binary decision rules. Additionally, a Receiver Operating Characteristic (ROC) curve will be constructed to assess model performance.
 

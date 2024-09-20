@@ -1,0 +1,343 @@
+---
+title: "Take Home Final Exam, Spring 2022 - Scott Jue"
+output: html_document
+---
+
+For the take-home part of the MSDS 401 Final Exam, you are tasked with analyzing data on new daily covid-19 cases and deaths in European Union (EU) and European Economic Area (EEA) countries. A data file may be downloaded [here](https://www.ecdc.europa.eu/en/publications-data/data-daily-new-cases-covid-19-eueea-country), *or* you may use the provided **read.csv()** code in the 'setup' code chunk below to read the data directly from the web csv. Either approach is acceptable; the data should be the same.
+
+Once you have defined a data frame with the daily case and death and country data, you are asked to:  (1) perform an Exploratory Data Analysis (EDA), (2) perform some hypothesis testing, (3) perform some correlation testing, and (4) fit and describe a linear regression model. Each of these four (4) items is further explained below and "code chunks" have been created for you in which to add your R code, just as with the R and Data Analysis Assignments. You may add additional code chunks, as needed. You should make comments in the code chunks or add clarifying text between code chunks that you think further your work.
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE, warning = FALSE,
+                      message = FALSE)
+
+library(ggplot2)
+library(gridExtra)
+library(lubridate)
+library(tidyverse)
+library(dplyr)
+library(Hmisc)
+library(rockchalk)
+
+# The read.csv() below reads the data directly from the web. You may use this or
+# you can download and read from a local copy of the data file. To work from a
+# local file, you will need to modify the read.csv() code here:
+
+data <- read.csv("https://opendata.ecdc.europa.eu/covid19/nationalcasedeath_eueea_daily_ei/csv",
+                 na.strings = "", fileEncoding = "UTF-8-BOM")
+
+# The zero-th step in any analysis is to 'sanity check' our data. Here, we call
+# glimpse() from the 'dplyr' package, but utils::str() would work, as well.
+glimpse(data)
+
+# If our read.csv() code above worked as expected, we should have a data frame
+# of 8460 rows, 11 columns | variables.
+
+# The last thing we're going to do is drop the 'continentExp' vector (as all
+# observations are "Europe"), coerce the 'dateRep' vector to a date format, and
+# coerce the country and territory vectors to factors.
+
+data <- data %>%
+  select(-c("continentExp")) %>%
+  mutate(dateRep = dmy(dateRep),
+         countriesAndTerritories = as.factor(countriesAndTerritories),
+         geoId = as.factor(geoId),
+         countryterritoryCode = as.factor(countryterritoryCode))
+
+```
+
+A data dictionary for the dataset is available [here](https://www.ecdc.europa.eu/sites/default/files/documents/Description-and-disclaimer_daily_reporting.pdf).
+
+#### Definitions:
+
+* "Incidence rate" is equal to new daily cases per 100K individuals. Country population estimates can be found in 'popData2020.' You will calculate a daily incidence rate in item (1), for each country, that we will explore further in items (2) and (3).
+
+* "Fatality rate" is equal to new daily deaths per 100K individuals. Country population estimates can be found in 'popData2020.' You will calculate a daily fatality rate in item (1), for each country, that we will explore further in items (2) and (3).
+
+---
+
+#### 1. Descriptive Statistics
+  Perform an Exploratory Data Analysis (EDA). Your EDA is exactly that:  yours. Your knit .html should include the visualizations and summary tables that you find valuable while exploring this dataset. **However**, at minimum, your EDA must include the following:
+
+* Creation of a vector, 'incidence_rate,' equal to the daily new cases per 100K individuals, per country. Country populations are provided in 'popData2020.' This vector should be added to the 'data' data frame.
+* Creation of a vector, 'fatality_rate,' equal to the new deaths per 100K individuals, per country. Country populations are provided in 'popData2020.' This vector should be added to the 'data' data frame.
+* A visualization exploring new cases or incidence rates, per country, over time. You may choose a subset of countries, if you wish, but your visualization should include at least five (5) countries and include the entire time frame of the dataset.
+* A visualization exploring new deaths or fatality rates, per country, over time. You may choose a subset of countries, if you wish, but your visualization should include at least five (5) countries.
+* A table or visualization exploring some other aspect of the data. For example, you could explore case fatality rates per country; the number of deaths divided by the total number of cases. Note that to do this, you would want to like across the entire time of the dataset, looking at the total cases and deaths, per country.
+
+```{r descriptive_stats, fig.width = 8, fig.height = 8}
+summary(data)
+str(data)
+# histograms of cases and deaths
+hist(data$cases, main = "Histogram of Cases", xlab = "Cases")
+hist(data$deaths, main = "Histogram of Deaths", xlab = "Cases")
+
+#boxplots of cases and deaths
+boxplot(data$cases, main = "Boxplot of Cases")
+boxplot(data$deaths, main = "Boxplot of Deaths")
+
+#scatterplots of cases and deaths
+plot(data$cases~data$dateRep, main = "Cases Over Time", xlab = "Date", ylab = "Cases")
+plot(data$deaths~data$dateRep, main = "Deaths Over Time", xlab = "Date", ylab = "Deaths")
+
+#get list of all countries in data
+unique(data$countriesAndTerritories)
+
+# create incidence_rate
+data$incidence_rate <- (data$cases/data$popData2020)*100000
+
+# create fatality_rate
+data$fatality_rate <- (data$deaths/data$popData2020)*100000
+
+# subset data, select only 5 countries
+countries <- c("Germany", "Icelend", "Italy", "Spain", "Sweden")
+
+df_ir <- data[data$countriesAndTerritories %in% countries,]
+
+# A visualization exploring new cases or incidence rates, per country, over time.
+ggplot(data = df_ir, aes(x= dateRep, y = incidence_rate, group = countriesAndTerritories, color = countriesAndTerritories)) +
+  geom_line() + xlab("Date") + ylab("Cases") + ggtitle("Daily cases per 100K individuals") + labs(col="Countries")
+
+# A visualization exploring new deaths or fatality rates, per country, over time.
+ggplot(data = df_ir, aes(x= dateRep, y = fatality_rate, group = countriesAndTerritories, color = countriesAndTerritories)) +
+  geom_line() + xlab("Date") + ylab("Deaths") + ggtitle("Daily deaths per 100K individuals") + labs(col="Countries")
+
+# explore case fatality rates per country
+df_cfr <- aggregate(cbind(cases, deaths) ~ countriesAndTerritories, data=data, FUN=sum)
+df_cfr$case_fatality <- df_cfr$deaths/df_cfr$cases
+ggplot(data = df_cfr, aes(x=countriesAndTerritories, y=case_fatality, color=countriesAndTerritories, fill=countriesAndTerritories)) + geom_bar(stat="identity") + xlab("Countries") + ylab("Case Fatality Rate") + 
+  ggtitle("Case Fatality Rate by Country") +
+  scale_y_continuous(labels = scales::percent) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) + 
+  theme(legend.position = "none")
+```
+
+#### 2. Inferential Statistics
+  Select two (2) countries of your choosing and compare their incidence or fatality rates using hypothesis testing. At minimum, your work should include the following:
+
+* Visualization(s) comparing the daily incidence or fatality rates of the selected countries,
+* A statement of the null hypothesis.
+* A short justification of the statistical test selected.
+    + Why is the test you selected an appropriate one for the comparison we're making?
+* A brief discussion of any distributional assumptions of that test.
+    + Does the statistical test we selected require assumptions about our data?
+    + If so, does our data satisfy those assumptions?
+* Your selected alpha.
+* The test function output; i.e. the R output.
+* The relevant confidence interval, if not returned by the R test output.
+* A concluding statement on the outcome of the statistical test.
+    + i.e. Based on our selected alpha, do we reject or fail to reject our null hypothesis?
+
+```{r inferential_stats, fig.width = 9, fig.height = 8}
+# subset the 2 countries to be compared
+df_spain <- subset(data, data$countriesAndTerritories == "Spain")
+df_finland <- subset(data, data$countriesAndTerritories == "Finland")
+
+# Visualization(s) comparing the daily incidence rates of the selected countries,
+colors <- c("Spain" = "red4", "Finland" = "blue4")
+ggplot(NULL, aes(x=dateRep, y=incidence_rate)) + geom_line(data=df_spain, aes(color= "Spain")) + geom_line(data=df_finland, aes(color = "Finland")) + xlab("Date") + ylab("Cases") + ggtitle("Daily cases per 100K individuals") + scale_color_manual(values = colors) + theme(legend.title=element_blank())
+
+# A two sample t-test will be used because we will be comparing 2 daily incident rates between 2 independent sample populations which will be Spain and Finland. Additionally, the population variance and standard deviation is unknown. For the hypothesis test, we will test the null hypothesis of equal population mean incident rates for the two countries Spain and Finland at the 95% confidence level with a two-sided t-test.
+
+# The two sample t-test has a required distributional assumption of normality and also assumes the populations variances are equal. After calculating the skewness and kurtosis and creating the histograms, boxplots, and qqplots for the daily incidence rates, we can conclude that the data does not follow a normal distribution. We should look to transform the data in order to see if we can create a distribution that is closer to normal.  
+
+skewness(x = df_spain$incidence_rate)
+kurtosis(x = df_spain$incidence_rate)
+skewness(x = df_finland$incidence_rate)
+kurtosis(x = df_finland$incidence_rate)
+
+par(mfrow = c(3, 2))
+
+hist(df_spain$incidence_rate, main = "Histogram of Spain daily Incidence Rates per 100K", xlab="Daily Incidence Rate per 100K")
+hist (df_finland$incidence_rate, main = "Histogram of Spain daily Incidence Rates per 100K", xlab="Daily Incidence Rate per 100K")
+
+boxplot(df_spain$incidence_rate, main = "Boxplot of Spain Daily Incidence Rates per 100K")
+boxplot(df_finland$incidence_rate, main = "Boxplot of Finland Incidence Rates per 100K")
+
+qqnorm(df_spain$incidence_rate, main = "QQ Plot for Spain Incidence Rates per 100K")
+qqline(df_spain$incidence_rate)
+qqnorm(df_finland$incidence_rate, main = "QQ Plot for Finland Incidence Rates per 100K")
+qqline(df_finland$incidence_rate)
+
+# compute f test to check equality of the two variances
+var.test(df_spain$incidence_rate, df_finland$incidence_rate, alternative = "two.sided")
+
+# The results of the F test have a p-value of 1.087e-10 which means we reject the null hypothesis. However, F tests assume a normal distribution and we do not have a normal distribution of incidence rate, so this test is likely not valuable to our analysis. 
+
+# test hypothesis using t-test
+t.test(df_spain$incidence_rate, df_finland$incidence_rate, alternative = "two.sided")
+
+# The t-test above results in a p-value of 0.0038 which is less than our alpha of 0.05; therefore, we should reject the null hypothesis at the 5% significance level that the mean incidence rate of Finland is equal to the mean incidence rate of Spain. There is sufficient evidence that there is a significant difference in the mean daily incidence rates of COVID-19 between Spain and Finland.
+```
+
+#### 3. Correlation
+  Considering all countries, explore the relationship between incidence rates and fatality rates. At minimum, your work should include the following:
+
+* Visualization(s) showing the distributions of daily incidence and fatality rates, regardless of country. Please note that both country and date should be disregarded here.
+* A short statement identifying the most appropriate correlation coefficient.
+    + For the correlation we're interested in, which correlation coefficient is most appropriate?
+    + Why do you find the correlation coefficient selected to be the most appropriate?
+* The calculated correlation coefficient or coefficient test output; e.g. *cor()* or *cor.test()*.
+  
+```{r correlation, fig.width = 8, fig.height = 8}
+
+par(mfrow = c(2, 3))
+hist(data$incidence_rate, xlab = "Daily Incidence Rate", main = "Histogram of Daily Incidence Rate")
+boxplot(data$incidence_rate, ylab = "Daily Incidence Rate", main = "Boxplot of Daily Incidence Rate")
+qqnorm(data$incidence_rate, main = "QQ Plot for Daily Incidence Rates per 100K")
+qqline(data$incidence_rate)
+hist(data$fatality_rate, xlab = "Daily Fatality Rate", main = "Histogram of Daily Fatality Rate")
+boxplot(data$fatality_rate, ylab = "Daily Fatality Rate", main = "Boxplot of Daily Fatality Rate")
+qqnorm(data$fatality_rate, main = "QQ Plot for Daily Fatality Rates per 100K")
+qqline(data$fatality_rate)
+
+# Since we are dealing with non normal data that also contains extreme outliers, we will use the Kendall correlation method to calculate our correlation coefficient test. After using cor.test() to calculate the Kendall correlation, we get a correlation coefficient of 0.45. This suggests that there is a moderate correlation between the daily incidence rate and the daily fatality rate.
+
+cor.test(data$incidence_rate, data$fatality_rate, method = "kendall")
+```
+
+#### 4. Regression
+  Here, we will fit a model on data from twenty (20) countries considering total new cases as a function of population, population density and gross domestic product (GDP) per capita. Note that the GDP per capita is given in "purchasing power standard," which considers the costs of goods and services in a country relative to incomes in that country; i.e. we will consider this as appropriately standardized.
+
+Code is given below defining a new data frame, 'model_df,' which provides the total area and standardized GDP per capita for the twenty (20) countries for our model fit. You are responsible for creating a vector of the total new cases across the time frame of the dataset, for each of those countries, and adding that vector to our 'model_df" data frame.
+
+```{r regression_a, fig.width = 8, fig.height = 8}
+
+# The code below creates a new data frame, 'model_df,' that includes the area,
+# GDP per capita, population and population density for the twenty (20)
+# countries of interest. All you should need to do is execute this code, as is.
+
+# You do not need to add code in this chunk. You will need to add code in the
+# 'regression_b,' 'regression_c' and 'regression_d' code chunks.
+
+twenty_countries <- c("Austria", "Belgium", "Bulgaria", "Cyprus", "Denmark",
+                      "Finland", "France", "Germany", "Hungary", "Ireland",
+                      "Latvia", "Lithuania", "Malta", "Norway", "Poland",
+                      "Portugal", "Romania", "Slovakia", "Spain", "Sweden")
+
+sq_km <- c(83858, 30510, 110994, 9251, 44493, 338145, 551695, 357386, 93030,
+           70273, 64589, 65300, 316, 385178, 312685, 88416, 238397, 49036,
+           498511, 450295)
+
+gdp_pps <- c(128, 118, 51, 91, 129, 111, 104, 123, 71, 190, 69, 81, 100, 142,
+             71, 78, 65, 71, 91, 120)
+
+model_df <- data %>%
+  select(c(countriesAndTerritories, popData2020)) %>%
+  filter(countriesAndTerritories %in% twenty_countries) %>%
+  distinct(countriesAndTerritories, .keep_all = TRUE) %>%
+  add_column(sq_km, gdp_pps) %>%
+  mutate(pop_dens = popData2020 / sq_km) %>%
+  rename(country = countriesAndTerritories, pop = popData2020)
+
+```
+
+Next, we need to add one (1) more column to our 'model_df' data frame. Specifically, one that has the total number of new cases for each of the twenty (20) countries. We calculate the total number of new cases by summing all the daily new cases, for each country, across all the days in the dataset.
+
+```{r regression_b}
+
+total_cases <- data %>%
+  select(c(countriesAndTerritories, cases)) %>%
+  group_by(countriesAndTerritories) %>%
+  dplyr::summarize(total_cases = sum(cases, na.rm = TRUE)) %>%
+  filter(countriesAndTerritories %in% twenty_countries) %>%
+  select(total_cases)
+
+model_df <- model_df %>%
+  add_column(total_cases)
+
+two_countries <- c("Luxembourg", "Netherlands")
+
+total_cases_2 <- data %>%
+  select(c(countriesAndTerritories, cases)) %>%
+  group_by(countriesAndTerritories) %>%
+  dplyr::summarize(total_cases = sum(cases, na.rm = TRUE)) %>%
+  filter(countriesAndTerritories %in% two_countries) %>%
+  select(total_cases)
+
+```
+
+Now, we will fit our model using the data in 'model_df.' We are interested in explaining total cases (response) as a function of population (explanatory), population density (explanatory), and GDP (explanatory).
+
+At minimum, your modeling work should including the following:
+
+* A description - either narrative or using R output - of your 'model_df' data frame.
+    + Consider:  what data types are present? What do our rows and columns represent?
+* The *lm()* *summary()* output of your fitted model. As we did in the second Data Analysis Assignment, you can pass your fitted model object - i.e. the output of **lm()** - to *summary()* and get additional details, including R^2, on your model fit.
+* A short statement on the fit of the model.
+    + Which, if any, of our coefficients are statistically significant?
+    + What is the R^2 of our model?
+    + Should we consider a reduced model; i.e. one with fewer parameters?
+
+```{r regression_c}
+str(model_df)
+summary(model_df)
+
+# model_df has nominal data and numerical data. Each row represents a country which is the nominal data and the columns have population, land square footage, GDP, population density, and total COVID case data which is the numerical data. 
+
+lm_mdl <- lm(total_cases ~ pop + pop_dens + gdp_pps, data = model_df)
+summary(lm_mdl)
+
+
+par(mfrow = c(1, 2))
+hist(lm_mdl$residuals, xlab = "Residuals", main = "Histogram of Linear Model Residuals")
+qqnorm(lm_mdl$residuals, main = "QQ Plot for Linear Model Residuals")
+qqline(lm_mdl$residuals)
+
+
+# A statistically significant result was obtained overall as indicated by the F-statistic which is 51.1 with a p-value = 2.032e-08. This indicates the model has produced statistically significant results to be investigated.
+# The low p-value of 1.47e-09 indicates that the coefficient for the predictor variable pop is statistically significant to the model. The t-values and p-values reported for the predictor variables pop_dens and gdp_pp indicate that they are not statistically significant and can be excluded from a simplified regression model.
+# The model produces a multiple R^2 of 0.9055 which indicates that about 90% of the variation in total cases is accounted for by the independent variables population, population density, and GDP per capita. This indicates the model has the potential to be useful for making predictions.
+# Since pop_dens and gdp_pp are not statistically significant, we should consider creating a reduced model without these variables.
+
+# create reduced linear regression model with only population as predictor variable
+lm_mdl_2 <- lm(total_cases ~ pop, data = model_df)
+summary(lm_mdl_2)
+
+# The results of a reduced model produce lower p-values than the model above. So the reduced model is a better fit than the model that includes pop_dens and gdp_pp as predictor variables.
+
+```
+
+The last thing we will do is use our model to predict the  total new cases of two (2) countries not included in our model fit. At minimum, your work should include:
+
+* The predicted total new cases for both countries.
+* The actual total new cases for both countries.
+* A short statement on the performance of the model in these two (2) cases.
+    + Compare the new predictions to those made on the fitted dataset. You may compare the predicted values or the residuals.
+  
+```{r regression_d}
+
+# The code below defines our 'newdata' data frame for applying our model to the
+# population, population density and GDP per capita for two (2). Please execute
+# the code as given.
+
+newdata <- data.frame(country = c("Luxembourg", "Netherlands"),
+                      pop = c(626108, 17407585),
+                      gdp_pps = c(261, 130),
+                      pop_dens = c(626108, 17407585) / c(2586, 41540))
+
+# Add code here returning the actual  total cases from our dataset for the
+# Netherlands and Luxembourg.
+
+(luxembourg_total_cases <- data %>%
+  group_by(countriesAndTerritories) %>%
+  dplyr::summarize(total_cases = sum(cases)) %>%
+  filter(countriesAndTerritories == "Luxembourg"))
+
+(netherlands_total_cases <- data %>%
+  group_by(countriesAndTerritories) %>%
+   dplyr::summarize(total_cases = sum(cases)) %>% 
+  filter(countriesAndTerritories == "Netherlands"))
+
+
+# Add code here returning the total cases for the Netherlands and Luxembourg
+# predicted by our model.
+
+#predict using initial model
+predict(lm_mdl, newdata = newdata)
+
+#predict using reduced model
+predict(lm_mdl_2, newdata = newdata)
+
+# The initial model predicted 2,962,686 total cases for Luxembourg and the reduced model predicted -177,821. However, the actual total cases are 248,279. For this case the first model did not perform well as the delta is more than 2.7 million. The reduced model performed better as the delta is 426,100.  For Netherlands the initial model predicted 6,075,737 total cases, while the reduced model predicted 5,431,919. The actual total cases are 8,085,869. The initial model was able to produced a closer prediction with a delta of about 2 million than the reduced model which had a delta of about 2.6 million. The presence of outliers in the QQ plot of residuals could explain the variablity observed in the regression models. Additionally, since the summary table of the model shows that population density and GDP per capita are not statistically significant predictor variables, perhaps we could look at other variables like mean age or vaccination rate to add to our model to improve accuracy. 
+```

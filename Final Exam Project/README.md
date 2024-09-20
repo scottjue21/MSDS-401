@@ -26,9 +26,8 @@ The project was divided into four primary tasks:
 4. **Linear Regression Modeling:**
    - Fit a linear regression model to assess the relationship between total new cases and factors like population, population density, and GDP per capita across 20 selected countries.
 
-## Technologies Used
+## R Packages Used
 
-- **R**: Data analysis and visualization.
 - **ggplot2**: For creating various plots and visualizations.
 - **dplyr**: Data manipulation and transformation.
 - **Hmisc**: Statistical analysis.

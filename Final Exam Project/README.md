@@ -33,27 +33,8 @@ The project was divided into four primary tasks:
 - **Hmisc**: Statistical analysis.
 - **rockchalk**: Hypothesis testing and regression modeling.
 
-## Key Insights
-
-1. **EDA Results:**
-   - Incidence and fatality rates vary significantly across EU/EEA countries, with some countries exhibiting higher case and death trends.
-   - Case fatality rates suggest varying degrees of severity of the pandemic's impact across different regions.
-
-2. **Hypothesis Testing:**
-   - A two-sample t-test comparing Spain and Finland’s daily incidence rates showed statistically significant differences between the two countries.
-
-3. **Correlation Analysis:**
-   - A moderate positive correlation was found between incidence and fatality rates, indicating that countries with higher incidence rates often experience higher fatality rates.
-
-4. **Regression Analysis:**
-   - Population, population density, and GDP per capita were found to be significant predictors of the total new cases across the selected countries.
-
 ## Data
 
 The dataset used in this project is publicly available from the European Centre for Disease Prevention and Control (ECDC) and can be accessed [here](https://opendata.ecdc.europa.eu/covid19/nationalcasedeath_eueea_daily_ei/csv).
 
 A data dictionary for the dataset is available [here](https://www.ecdc.europa.eu/sites/default/files/documents/Description-and-disclaimer_daily_reporting.pdf).
-
-## Conclusion
-
-This project provided valuable insights into the impact of COVID-19 in the EU/EEA region, showcasing the power of data analysis techniques in understanding complex phenomena such as a global pandemic.
